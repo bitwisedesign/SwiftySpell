@@ -31,10 +31,13 @@ internal struct Check: ParsableCommand {
     @Argument(help: "The project path.")
     var path: String
 
+    @Flag(name: .shortAndLong, help: "Don't print status logs like 'Checking...'.")
+    var quiet: Bool = false
+
     func run() throws {
         let startAsync = CFAbsoluteTimeGetCurrent()
-        loadConfig(path)
-        swiftySpell.check(path, withFix: false) {
+        loadConfig(path, quiet: quiet)
+        swiftySpell.check(path, withFix: false, quiet: quiet) {
             let endAsync = CFAbsoluteTimeGetCurrent()
             let elapsedTime = Int(endAsync - startAsync)
             print(Utilities.getMessage(.doneChecking(swiftySpell.misspelledWordsNumber, elapsedTime)))
@@ -51,10 +54,13 @@ internal struct Fix: ParsableCommand {
     @Argument(help: "The project (or Swift file) path")
     var path: String
 
+    @Flag(name: .shortAndLong, help: "Don't print status logs like 'Checking...'.")
+    var quiet: Bool = false
+
     func run() throws {
         let startAsync = CFAbsoluteTimeGetCurrent()
-        loadConfig(path)
-        swiftySpell.check(path, withFix: true) {
+        loadConfig(path, quiet: quiet)
+        swiftySpell.check(path, withFix: true, quiet: quiet) {
             let endAsync = CFAbsoluteTimeGetCurrent()
             let elapsedTime = Int(endAsync - startAsync)
             print(Utilities.getMessage(.doneCheckingAndCorrecting(
@@ -153,7 +159,7 @@ internal struct Update: ParsableCommand {
     }
 }
 
-private func loadConfig(_ directoryOrSwiftFilePath: String) {
+private func loadConfig(_ directoryOrSwiftFilePath: String, quiet: Bool = false) {
     let fileManager = FileManager.default
     var projectPath: String
 
@@ -179,7 +185,9 @@ private func loadConfig(_ directoryOrSwiftFilePath: String) {
         swiftySpell.setConfig(configFilePath: globalConfigFilePath)
     } else {
         swiftySpell.setConfig()
-        Utilities.printWarning(Utilities.getMessage(.configFileNotFound(Constants.configFileName)))
+        if !quiet {
+            Utilities.printWarning(Utilities.getMessage(.configFileNotFound(Constants.configFileName)))
+        }
     }
 }
 

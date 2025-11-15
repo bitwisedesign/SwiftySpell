@@ -15,6 +15,7 @@ public class SwiftySpell {
     private let fileManager = FileManager.default
     private var checker: WordChecker?
     private var withFix = false
+    private var quiet = false
     public var allMisspelledWords: [String] = []
     public var config: Configuration?
     public var misspelledWordsNumber = 0
@@ -66,10 +67,12 @@ public class SwiftySpell {
     public func check(
         _ directoryOrSwiftFilePath: String,
         withFix: Bool,
+        quiet: Bool = false,
         isRunningFromCLI: Bool = true,
         onlyGitModified: Bool = false,
         completion: @escaping CompletionHandler) {
         self.withFix = withFix
+        self.quiet = quiet
         completionHandler = completion
 
         do {
@@ -101,7 +104,9 @@ public class SwiftySpell {
                     defer { group.leave() }
 
                     do {
-                        print("Checking '\(file.lastPathComponent)' (\(swiftFilesCounter)/\(swiftFilesNumber)")
+                        if !self.quiet {
+                            print("Checking '\(file.lastPathComponent)' (\(swiftFilesCounter)/\(swiftFilesNumber)")
+                        }
                         try self.processFile(file)
                         swiftFilesCounter += 1
                     } catch {
