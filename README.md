@@ -133,6 +133,39 @@ To correct most of the spelling mistakes, run the following command:
 swiftyspell fix .
 ```
 
+## Inline Ignore Directives
+
+Similar to SwiftLint, SwiftySpell supports inline directives to suppress spell checking on specific lines or ranges of code. This is useful when you have intentional "misspellings" like brand names, abbreviations, or technical terms.
+
+### Available Directives
+
+#### Ignore Current Line
+Use `// swiftyspell:disable:this` to ignore the line containing the directive:
+```swift
+let myBrandNme = "value" // swiftyspell:disable:this
+```
+
+#### Ignore Next Line
+Use `// swiftyspell:disable:next` to ignore the next line of code:
+```swift
+// swiftyspell:disable:next
+let anotherBrandNme = "value"
+```
+
+#### Ignore Range
+Use `// swiftyspell:disable` and `// swiftyspell:enable` to ignore a range of lines:
+```swift
+// swiftyspell:disable
+let firstMispeling = "one"
+let secondMispeling = "two"
+// swiftyspell:enable
+```
+
+### Notes
+- Directives are **case-insensitive** (`SWIFTYSPELL:DISABLE:THIS` works the same as `swiftyspell:disable:this`)
+- Directives work in both single-line (`//`) and multi-line (`/* */`) comments
+- Nested ranges are not supported (only use one disable/enable pair at a time)
+
 ## How to build
 
 To build SwiftySpell from source, run the following commands:
@@ -162,7 +195,7 @@ chmod +x build.sh && chmod +x install.sh
 
 - [ ] Check spelling mistakes in Swift file names also
 - [ ] Complete the implementation of Update command
-- [ ] Implement swiftyspell:enable/swiftyspell:disable
+- [x] Implement swiftyspell:enable/swiftyspell:disable
 - [ ] Integrate LanguageTool (pluralConsistency, homophoneCheck, ...)
 - [ ] Add the possibility to take a Swift code as a String parameter and check it
 - [ ] Use SyntaxRewriter while fixing the spelling mistakes

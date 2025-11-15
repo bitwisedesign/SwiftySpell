@@ -66,6 +66,12 @@ public class Constants {
     static let possessiveMarker = "s"
     static let swiftFileExtension = "swift"
 
+    // SwiftySpell inline directive patterns
+    static let directiveDisableThis = "swiftyspell:disable:this"
+    static let directiveDisableNext = "swiftyspell:disable:next"
+    static let directiveDisable = "swiftyspell:disable"
+    static let directiveEnable = "swiftyspell:enable"
+
     #if os(Linux)
     static let hunspellAffixFileExtension = "aff"
     static let hunspellDictionaryFileExtension = "dic"

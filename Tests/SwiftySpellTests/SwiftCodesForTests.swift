@@ -321,4 +321,54 @@ internal class SwiftCodesForTests {
         ]
         return .init(code: code, misspelledWords: misspelledWords)
     }
+
+    public static func forInlineDirectives() -> SwiftCodesForTests {
+        let code = """
+            // Test swiftyspell:disable:this directive
+            let misspeld = "test" // swiftyspell:disable:this
+
+            // Test swiftyspell:disable:next directive
+            // swiftyspell:disable:next
+            let anothermispeld = "value"
+
+            // Test swiftyspell:disable/enable range
+            class TestClass {
+                // swiftyspell:disable
+                let somewrd = "hello"
+                let anotherwrd = "world"
+                let yetanotherwrd = "test"
+                // swiftyspell:enable
+
+                // This should be checked
+                let actuallymisspeled = "properly spelled"
+            }
+
+            // Test case insensitivity
+            let testval = "hello" // SWIFTYSPELL:DISABLE:THIS
+            let anotherval = "world" // SwIfTySpElL:dIsAbLe:tHiS
+
+            // Test block comments with disable:this
+            /* swiftyspell:disable:this */
+            let blockcommentignored = "test"
+
+            // Test multi-line block comment with disable:next
+            /*
+             swiftyspell:disable:next
+             */
+            let multilineblockignored = "value"
+
+            // Test strings with misspellings
+            let stringWithError = "This is a mispeled word" // swiftyspell:disable:this
+            let anotherString = "Another mispeling here"
+
+            // swiftyspell:disable:next
+            let ignoredString = "Ignored mispeling in string"
+
+            // These should be caught
+            let firstmistke = "this"
+            let secondmistke = "that"
+            """
+        let misspelledWords = ["actuallymisspeled", "firstmistke", "mispeling", "secondmistke"]
+        return .init(code: code, misspelledWords: misspelledWords)
+    }
 }
