@@ -101,7 +101,7 @@ public class SwiftySpell {
                     defer { group.leave() }
 
                     do {
-                        print("Checking '\(file.lastPathComponent)' (\(swiftFilesCounter)/\(swiftFilesNumber)")
+                        print("Checking '\(file.lastPathComponent)' (\(swiftFilesCounter)/\(swiftFilesNumber))")
                         try self.processFile(file)
                         swiftFilesCounter += 1
                     } catch {
@@ -278,6 +278,12 @@ public class SwiftySpell {
         let source = try String(contentsOf: url, encoding: .utf8)
         let sourceFile = Parser.parse(source: source)
         let visitor = CodeVisitor(viewMode: .all)
+
+        // Enable localized string detection if the rule is enabled
+        if let config = config, config.rules.contains(.checkOnlyLocalizedStrings) {
+            visitor.checkOnlyLocalizedStringsEnabled = true
+        }
+
         visitor.walk(sourceFile)
 
         if let config = config, config.rules.contains(.supportOneLineComment) {
@@ -310,10 +316,35 @@ public class SwiftySpell {
         }
     }
 
+    private func checkLocalizedStrings(
+        in visitor: CodeVisitor,
+        filePath: String,
+        sourceLocationConverter: SourceLocationConverter) {
+        for node in visitor.localizedStrings {
+            let stringValue = node.description.trim()
+            let startLocation = node.startLocation(converter: sourceLocationConverter)
+            processSpelling(
+                for: stringValue,
+                startLocation: startLocation,
+                filePath: filePath,
+                sourceLocationConverter: sourceLocationConverter)
+        }
+    }
+
     private func checkSpelling(
         in visitor: CodeVisitor,
         filePath: String,
         sourceLocationConverter: SourceLocationConverter) {
+        // If check_only_localized_strings rule is enabled, ONLY check localized strings
+        if let config = config, config.rules.contains(.checkOnlyLocalizedStrings) {
+            checkLocalizedStrings(
+                in: visitor,
+                filePath: filePath,
+                sourceLocationConverter: sourceLocationConverter)
+            return
+        }
+
+        // Original behavior when check_only_localized_strings is NOT enabled
         /* for (identifier, position, kind) in visitor.globalOrConstantVariables {
              if kind == Constants.letSwiftKeyword || kind == Constants.varSwiftKeyword {
                  processSpelling(

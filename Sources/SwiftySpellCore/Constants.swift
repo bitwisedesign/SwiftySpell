@@ -46,6 +46,7 @@ public class Constants {
           #- ignore_lorem_ipsum
           #- ignore_html_tags
           - ignore_urls
+          #- check_only_localized_strings
 
         # Words/Regular expressions to ignore
         ignore:

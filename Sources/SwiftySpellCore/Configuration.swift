@@ -33,7 +33,8 @@ public class Configuration {
         for file in Constants.defaultExcludedFiles {
             exclude.insert(file)
         }
-        for rule in Configuration.SupportedRule.allCases {
+        // Add all rules EXCEPT check_only_localized_strings (which must be explicitly opted into)
+        for rule in Configuration.SupportedRule.allCases where rule != .checkOnlyLocalizedStrings {
             rulesSet.insert(rule.rawValue)
         }
 
@@ -189,5 +190,6 @@ public class Configuration {
         case ignoreLoremIpsum = "ignore_lorem_ipsum"
         case ignoreHtmlTags = "ignore_html_tags"
         case ignoreUrls = "ignore_urls"
+        case checkOnlyLocalizedStrings = "check_only_localized_strings"
     }
 }
