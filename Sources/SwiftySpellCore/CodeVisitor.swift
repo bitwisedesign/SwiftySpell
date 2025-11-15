@@ -16,6 +16,7 @@ internal class CodeVisitor: SyntaxVisitor {
     var structs: [(String, AbsolutePosition)] = []
     var functions: [FunctionDeclSyntax] = []
     var strings: [StringLiteralExprSyntax] = []
+    var localizedStrings: [StringLiteralExprSyntax] = []
     var enums: [EnumDeclSyntax] = []
     var enumCases: [(String, AbsolutePosition)] = []
     var enumCasesAssociatedValues: [(String, AbsolutePosition)] = []
@@ -41,6 +42,8 @@ internal class CodeVisitor: SyntaxVisitor {
 
     var authorName: [String] = []
     var isAuthorNameAddedToIgnoreList = false
+
+    var checkOnlyLocalizedStringsEnabled = false
 
     override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind {
         let protocolName = node.name.text
@@ -119,6 +122,14 @@ internal class CodeVisitor: SyntaxVisitor {
         // let stringLiteral = node.description.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
         // let position = node.position
         strings.append(node)
+
+        // If check_only_localized_strings rule is enabled, also collect localized strings
+        if checkOnlyLocalizedStringsEnabled {
+            if LocalizedStringDetector.isLocalizedString(node) {
+                localizedStrings.append(node)
+            }
+        }
+
         return .visitChildren
     }
 
