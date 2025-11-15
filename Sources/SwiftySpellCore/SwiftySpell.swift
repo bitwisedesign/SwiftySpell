@@ -687,13 +687,14 @@ public class SwiftySpell {
             if !corrections.isEmpty {
                 for (misspelledWord, suggestions) in corrections {
                     if !withFix, suggestions.isEmpty {
+                        let severity = config.strict ? Constants.Severity.error.rawValue : Constants.Severity.warning.rawValue
                         print(
                             Constants.getMessage(
                                 .wordIsMisspelled(
                                     path: filePath,
                                     line: line,
                                     column: currentWordColumn,
-                                    severity: Constants.Severity.warning.rawValue,
+                                    severity: severity,
                                     word: misspelledWord)))
                         allMisspelledWords.append(misspelledWord)
                         misspelledWordsNumber += 1
@@ -729,13 +730,14 @@ public class SwiftySpell {
                                     filePath: filePath)
                             }
                             if !isMisspelledWordCorrected {
+                                let severity = config.strict ? Constants.Severity.error.rawValue : Constants.Severity.warning.rawValue
                                 print(
                                     Constants.getMessage(
                                         .wordIsMisspelledWithSuggestions(
                                             path: filePath,
                                             line: line,
                                             column: currentWordColumn,
-                                            severity: Constants.Severity.warning.rawValue,
+                                            severity: severity,
                                             word: misspelledWord,
                                             suggestions: suggestions)))
                                 allMisspelledWords.append(misspelledWord)

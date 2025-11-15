@@ -13,6 +13,7 @@ public class Configuration {
     var exclude: Set<String> = []
     var rules: Set<SupportedRule> = []
     var ignore: Set<String> = []
+    public var strict: Bool = false
 
     var ignoredPatternsOfWords: [String] = []
     var ignoredPatternsOfFilesOrDirectories: [String] = []
@@ -44,11 +45,16 @@ public class Configuration {
     init(configFilePath: String) {
         do {
             let fileContents = try String(contentsOfFile: configFilePath, encoding: .utf8)
-            if let yaml = try? Yams.load(yaml: fileContents) as? [String: [String]] {
-                languages = Set(yaml["languages"] ?? [Constants.defaultLanguage])
-                rawIgnoreList = yaml["ignore"] ?? []
-                exclude = Set(yaml["exclude"] ?? [])
-                rulesSet = Set(yaml["rules"] ?? [])
+            if let yaml = try? Yams.load(yaml: fileContents) as? [String: Any] {
+                if let languagesList = yaml["languages"] as? [String] {
+                    languages = Set(languagesList)
+                } else {
+                    languages = [Constants.defaultLanguage]
+                }
+                rawIgnoreList = yaml["ignore"] as? [String] ?? []
+                exclude = Set(yaml["exclude"] as? [String] ?? [])
+                rulesSet = Set(yaml["rules"] as? [String] ?? [])
+                strict = yaml["strict"] as? Bool ?? false
             }
 
             let result = prepareConfiguration()

@@ -38,6 +38,10 @@ internal struct Check: ParsableCommand {
             let endAsync = CFAbsoluteTimeGetCurrent()
             let elapsedTime = Int(endAsync - startAsync)
             print(Utilities.getMessage(.doneChecking(swiftySpell.misspelledWordsNumber, elapsedTime)))
+            
+            if swiftySpell.misspelledWordsNumber > 0, swiftySpell.config?.strict == true {
+                Foundation.exit(1)
+            }
             Foundation.exit(0)
         }
     }
@@ -61,6 +65,10 @@ internal struct Fix: ParsableCommand {
                 swiftySpell.misspelledWordsNumber,
                 swiftySpell.correctedWordsNumber,
                 elapsedTime)))
+            
+            if swiftySpell.misspelledWordsNumber > 0, swiftySpell.config?.strict == true {
+                Foundation.exit(1)
+            }
             Foundation.exit(0)
         }
     }

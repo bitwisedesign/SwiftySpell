@@ -50,6 +50,9 @@ public class Constants {
         # Words/Regular expressions to ignore
         ignore:
           - iOS
+
+        # Treat warnings as errors (optional, defaults to false)
+        #strict: true
         """
 
     static let delimiters = ",.:-;_!`@/()[]{}\\"
