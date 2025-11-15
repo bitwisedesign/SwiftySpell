@@ -272,4 +272,103 @@ internal class CodeVisitorTests: XCTestCase {
         XCTAssertEqual(visitor.multiLineComments[1].count, 1)
         XCTAssertEqual(visitor.multiLineComments[2].count, 3)
     }
+
+    func testExtractIgnoreDirectivesDisableThis() {
+        let tempDir = FileManager.default.temporaryDirectory
+        let filePath = tempDir.appendingPathComponent("testFile.swift").path
+        let fileContent = """
+            let goodWord = "test"
+            let badWord = "test" // swiftyspell:disable:this
+            let anotherBadWord = "test"
+            """
+        try? fileContent.write(toFile: filePath, atomically: true, encoding: .utf8)
+
+        visitor.extractIgnoreDirectives(from: filePath)
+
+        XCTAssertTrue(visitor.ignoredLineNumbers.contains(2))
+        XCTAssertFalse(visitor.ignoredLineNumbers.contains(1))
+        XCTAssertFalse(visitor.ignoredLineNumbers.contains(3))
+    }
+
+    func testExtractIgnoreDirectivesDisableNext() {
+        let tempDir = FileManager.default.temporaryDirectory
+        let filePath = tempDir.appendingPathComponent("testFile.swift").path
+        let fileContent = """
+            let goodWord = "test"
+            // swiftyspell:disable:next
+            let badWord = "test"
+            let anotherGoodWord = "test"
+            """
+        try? fileContent.write(toFile: filePath, atomically: true, encoding: .utf8)
+
+        visitor.extractIgnoreDirectives(from: filePath)
+
+        XCTAssertTrue(visitor.ignoredLineNumbers.contains(3))
+        XCTAssertFalse(visitor.ignoredLineNumbers.contains(1))
+        XCTAssertFalse(visitor.ignoredLineNumbers.contains(2))
+        XCTAssertFalse(visitor.ignoredLineNumbers.contains(4))
+    }
+
+    func testExtractIgnoreDirectivesRange() {
+        let tempDir = FileManager.default.temporaryDirectory
+        let filePath = tempDir.appendingPathComponent("testFile.swift").path
+        let fileContent = """
+            let goodWord = "test"
+            // swiftyspell:disable
+            let badWord1 = "test"
+            let badWord2 = "test"
+            let badWord3 = "test"
+            // swiftyspell:enable
+            let anotherGoodWord = "test"
+            """
+        try? fileContent.write(toFile: filePath, atomically: true, encoding: .utf8)
+
+        visitor.extractIgnoreDirectives(from: filePath)
+
+        XCTAssertTrue(visitor.ignoredLineNumbers.contains(3))
+        XCTAssertTrue(visitor.ignoredLineNumbers.contains(4))
+        XCTAssertTrue(visitor.ignoredLineNumbers.contains(5))
+        XCTAssertFalse(visitor.ignoredLineNumbers.contains(1))
+        XCTAssertFalse(visitor.ignoredLineNumbers.contains(2))
+        XCTAssertFalse(visitor.ignoredLineNumbers.contains(6))
+        XCTAssertFalse(visitor.ignoredLineNumbers.contains(7))
+    }
+
+    func testExtractIgnoreDirectivesCaseInsensitive() {
+        let tempDir = FileManager.default.temporaryDirectory
+        let filePath = tempDir.appendingPathComponent("testFile.swift").path
+        let fileContent = """
+            let test1 = "test" // SWIFTYSPELL:DISABLE:THIS
+            // SwIfTySpElL:dIsAbLe:nExT
+            let test2 = "test"
+            """
+        try? fileContent.write(toFile: filePath, atomically: true, encoding: .utf8)
+
+        visitor.extractIgnoreDirectives(from: filePath)
+
+        XCTAssertTrue(visitor.ignoredLineNumbers.contains(1))
+        XCTAssertTrue(visitor.ignoredLineNumbers.contains(3))
+        XCTAssertFalse(visitor.ignoredLineNumbers.contains(2))
+    }
+
+    func testExtractIgnoreDirectivesBlockComments() {
+        let tempDir = FileManager.default.temporaryDirectory
+        let filePath = tempDir.appendingPathComponent("testFile.swift").path
+        let fileContent = """
+            /* swiftyspell:disable:this */
+            let badWord1 = "test"
+            /*
+             swiftyspell:disable:next
+             */
+            let badWord2 = "test"
+            let goodWord = "test"
+            """
+        try? fileContent.write(toFile: filePath, atomically: true, encoding: .utf8)
+
+        visitor.extractIgnoreDirectives(from: filePath)
+
+        XCTAssertTrue(visitor.ignoredLineNumbers.contains(2))
+        XCTAssertTrue(visitor.ignoredLineNumbers.contains(6))
+        XCTAssertFalse(visitor.ignoredLineNumbers.contains(7))
+    }
 }

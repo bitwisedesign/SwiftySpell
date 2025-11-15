@@ -42,6 +42,9 @@ internal class CodeVisitor: SyntaxVisitor {
     var authorName: [String] = []
     var isAuthorNameAddedToIgnoreList = false
 
+    // Set of line numbers to ignore based on inline directives
+    var ignoredLineNumbers: Set<Int> = []
+
     override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind {
         let protocolName = node.name.text
         let position = node.position
@@ -320,6 +323,99 @@ internal class CodeVisitor: SyntaxVisitor {
                 isMultiLineComment = false
                 multiLineComments.append(multiLineComment)
                 multiLineComment = [(String, Int)]()
+            }
+        }
+    }
+
+    func extractIgnoreDirectives(from filePath: String) {
+        let fileURL = URL(fileURLWithPath: filePath)
+        guard let fileContent = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            return
+        }
+        let lines = fileContent.components(separatedBy: .newlines)
+        var lineNumber = 0
+        var isDisabled = false
+        var inMultiLineComment = false
+
+        for line in lines {
+            lineNumber += 1
+            let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+            let lowercasedLine = trimmedLine.lowercased()
+
+            // Track multi-line comments
+            if lowercasedLine.contains("/*") {
+                inMultiLineComment = true
+            }
+
+            // Check for swiftyspell:disable:this
+            // This directive can appear inline with code or in a comment on the same line
+            if lowercasedLine.contains(Constants.directiveDisableThis) {
+                ignoredLineNumbers.insert(lineNumber)
+
+                // If it's in a multi-line comment block before code, also ignore the next non-empty code line
+                if inMultiLineComment && trimmedLine.starts(with: "/*") && lowercasedLine.contains("*/") {
+                    // Single line block comment before code - ignore next line
+                    let nextLineNum = lineNumber + 1
+                    if nextLineNum <= lines.count {
+                        let nextLine = lines[nextLineNum - 1].trimmingCharacters(in: .whitespaces)
+                        if !nextLine.isEmpty && !nextLine.starts(with: "//") && !nextLine.starts(with: "/*") {
+                            ignoredLineNumbers.insert(nextLineNum)
+                        }
+                    }
+                }
+                continue
+            }
+
+            // Check for swiftyspell:disable:next
+            if lowercasedLine.contains(Constants.directiveDisableNext) {
+                // Find the next non-comment, non-empty line
+                var nextLineToIgnore = lineNumber + 1
+
+                // If we're in a multi-line comment, skip to after the comment closes
+                if inMultiLineComment {
+                    for i in lineNumber..<lines.count {
+                        let futtureLine = lines[i].trimmingCharacters(in: .whitespaces)
+                        if futtureLine.contains("*/") {
+                            nextLineToIgnore = i + 2  // Line after the closing */
+                            break
+                        }
+                    }
+                }
+
+                // Now find the next actual code line
+                while nextLineToIgnore <= lines.count {
+                    let nextLine = lines[nextLineToIgnore - 1].trimmingCharacters(in: .whitespaces)
+                    if !nextLine.isEmpty && !nextLine.starts(with: "//") && !nextLine.starts(with: "/*") {
+                        ignoredLineNumbers.insert(nextLineToIgnore)
+                        break
+                    }
+                    nextLineToIgnore += 1
+                }
+                continue
+            }
+
+            // Check for swiftyspell:disable (range start)
+            if lowercasedLine.contains(Constants.directiveDisable),
+               !lowercasedLine.contains(Constants.directiveDisableThis),
+               !lowercasedLine.contains(Constants.directiveDisableNext) {
+                isDisabled = true
+                continue
+            }
+
+            // Check for swiftyspell:enable (range end)
+            if lowercasedLine.contains(Constants.directiveEnable) {
+                isDisabled = false
+                continue
+            }
+
+            // Track end of multi-line comments
+            if lowercasedLine.contains("*/") {
+                inMultiLineComment = false
+            }
+
+            // If we're in a disabled range, add this line to ignored set
+            if isDisabled {
+                ignoredLineNumbers.insert(lineNumber)
             }
         }
     }

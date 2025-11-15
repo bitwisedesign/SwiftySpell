@@ -336,4 +336,31 @@ internal class SwiftySpellTests: XCTestCase {
         let version = swiftySpell.getCurrentVersion()
         XCTAssertNotNil(version)
     }
+
+    func testInlineDirectives() {
+        let expectation = expectation(description: "Test Inline Directives")
+
+        guard let swiftySpell = swiftySpell else {
+            return
+        }
+
+        let testFilePath = "\(testDirectoryPath)/TestFile.swift"
+        let swiftCode = SwiftCodesForTests.forInlineDirectives()
+        let testFileContent = swiftCode.code
+        try? testFileContent.write(toFile: testFilePath, atomically: true, encoding: .utf8)
+
+        DispatchQueue.global().async {
+            let semaphore = DispatchSemaphore(value: 0)
+            swiftySpell.check(self.testDirectoryPath, withFix: false, isRunningFromCLI: false) {
+                semaphore.signal()
+            }
+            semaphore.wait()
+
+            let array = swiftySpell.allMisspelledWords.sorted()
+            XCTAssertEqual(array, swiftCode.misspelledWords.sorted())
+
+            expectation.fulfill()
+        }
+        waitForExpectations(timeout: testTimeout, handler: nil)
+    }
 }
