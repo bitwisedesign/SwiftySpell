@@ -101,7 +101,7 @@ public class SwiftySpell {
                     defer { group.leave() }
 
                     do {
-                        print("Checking '\(file.lastPathComponent)' (\(swiftFilesCounter)/\(swiftFilesNumber)")
+                        print("Checking '\(file.lastPathComponent)' (\(swiftFilesCounter)/\(swiftFilesNumber))")
                         try self.processFile(file)
                         swiftFilesCounter += 1
                     } catch {
@@ -278,7 +278,16 @@ public class SwiftySpell {
         let source = try String(contentsOf: url, encoding: .utf8)
         let sourceFile = Parser.parse(source: source)
         let visitor = CodeVisitor(viewMode: .all)
+
+        // Enable localized string detection if the rule is enabled
+        if let config = config, config.rules.contains(.checkOnlyLocalizedStrings) {
+            visitor.checkOnlyLocalizedStringsEnabled = true
+        }
+
         visitor.walk(sourceFile)
+
+        // Extract ignore directives to identify lines that should be skipped
+        visitor.extractIgnoreDirectives(from: url.path)
 
         if let config = config, config.rules.contains(.supportOneLineComment) {
             visitor.extractOneLineComments(from: url.path)
@@ -310,10 +319,36 @@ public class SwiftySpell {
         }
     }
 
+    private func checkLocalizedStrings(
+        in visitor: CodeVisitor,
+        filePath: String,
+        sourceLocationConverter: SourceLocationConverter) {
+        for node in visitor.localizedStrings {
+            let stringValue = node.description.trim()
+            let startLocation = node.startLocation(converter: sourceLocationConverter)
+            processSpelling(
+                for: stringValue,
+                startLocation: startLocation,
+                filePath: filePath,
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
+        }
+    }
+
     private func checkSpelling(
         in visitor: CodeVisitor,
         filePath: String,
         sourceLocationConverter: SourceLocationConverter) {
+        // If check_only_localized_strings rule is enabled, ONLY check localized strings
+        if let config = config, config.rules.contains(.checkOnlyLocalizedStrings) {
+            checkLocalizedStrings(
+                in: visitor,
+                filePath: filePath,
+                sourceLocationConverter: sourceLocationConverter)
+            return
+        }
+
+        // Original behavior when check_only_localized_strings is NOT enabled
         /* for (identifier, position, kind) in visitor.globalOrConstantVariables {
              if kind == Constants.letSwiftKeyword || kind == Constants.varSwiftKeyword {
                  processSpelling(
@@ -329,7 +364,8 @@ public class SwiftySpell {
                 for: variable,
                 position: position,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for (paramName, position) in visitor.functionParameters {
@@ -337,7 +373,8 @@ public class SwiftySpell {
                 for: paramName,
                 position: position,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for (extendedTypeName, position) in visitor.extensions {
@@ -345,7 +382,8 @@ public class SwiftySpell {
                 for: extendedTypeName,
                 position: position,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for (protocolName, position) in visitor.protocols {
@@ -353,7 +391,8 @@ public class SwiftySpell {
                 for: protocolName,
                 position: position,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for (typeName, position) in visitor.typeAliases {
@@ -361,7 +400,8 @@ public class SwiftySpell {
                 for: typeName,
                 position: position,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for node in visitor.enums {
@@ -371,7 +411,8 @@ public class SwiftySpell {
                 for: enumName,
                 startLocation: startLocation,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for (caseName, position) in visitor.enumCases {
@@ -379,7 +420,8 @@ public class SwiftySpell {
                 for: caseName,
                 position: position,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for (associatedValue, position) in visitor.enumCasesAssociatedValues {
@@ -387,7 +429,8 @@ public class SwiftySpell {
                 for: associatedValue,
                 position: position,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for node in visitor.strings {
@@ -397,7 +440,8 @@ public class SwiftySpell {
                 for: stringValue,
                 startLocation: startLocation,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for node in visitor.classes {
@@ -407,7 +451,8 @@ public class SwiftySpell {
                 for: className,
                 startLocation: startLocation,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for (aStruct, position) in visitor.structs {
@@ -415,7 +460,8 @@ public class SwiftySpell {
                 for: aStruct,
                 position: position,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for node in visitor.functions {
@@ -425,7 +471,8 @@ public class SwiftySpell {
                 for: functionName,
                 startLocation: startLocation,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for node in visitor.genericTypeParameters {
@@ -435,7 +482,8 @@ public class SwiftySpell {
                 for: paramName,
                 startLocation: startLocation,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for node in visitor.attributes {
@@ -445,7 +493,8 @@ public class SwiftySpell {
                 for: attributeName,
                 startLocation: startLocation,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for node in visitor.customOperators {
@@ -455,7 +504,8 @@ public class SwiftySpell {
                 for: operatorName,
                 startLocation: startLocation,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for (guardStatementsVariable, position) in visitor.guardStatementsVariables {
@@ -463,7 +513,8 @@ public class SwiftySpell {
                 for: guardStatementsVariable,
                 position: position,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for (guardStatementsValue, position) in visitor.guardStatementsValues {
@@ -471,7 +522,8 @@ public class SwiftySpell {
                 for: guardStatementsValue,
                 position: position,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for node in visitor.subscripts {
@@ -483,7 +535,8 @@ public class SwiftySpell {
                         for: paramName,
                         startLocation: startLocation,
                         filePath: filePath,
-                        sourceLocationConverter: sourceLocationConverter)
+                        sourceLocationConverter: sourceLocationConverter,
+                        visitor: visitor)
                 }
 
                 let type = parameter.type
@@ -493,7 +546,8 @@ public class SwiftySpell {
                     for: typeName,
                     startLocation: startLocation,
                     filePath: filePath,
-                    sourceLocationConverter: sourceLocationConverter)
+                    sourceLocationConverter: sourceLocationConverter,
+                    visitor: visitor)
             }
 
             let returnClause = node.returnClause
@@ -504,7 +558,8 @@ public class SwiftySpell {
                 for: returnTypeName,
                 startLocation: startLocation,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for (dictionaryKey, position) in visitor.dictionaryKeys {
@@ -512,7 +567,8 @@ public class SwiftySpell {
                 for: dictionaryKey,
                 position: position,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         for (dictionaryValue, position) in visitor.dictionaryValues {
@@ -520,7 +576,8 @@ public class SwiftySpell {
                 for: dictionaryValue,
                 position: position,
                 filePath: filePath,
-                sourceLocationConverter: sourceLocationConverter)
+                sourceLocationConverter: sourceLocationConverter,
+                visitor: visitor)
         }
 
         if let config = config {
@@ -530,7 +587,8 @@ public class SwiftySpell {
                         for: comment,
                         startLocation: .init(line: line, column: 1, offset: 0, file: filePath),
                         filePath: filePath,
-                        sourceLocationConverter: sourceLocationConverter)
+                        sourceLocationConverter: sourceLocationConverter,
+                        visitor: visitor)
                 }
             }
 
@@ -541,7 +599,8 @@ public class SwiftySpell {
                             for: commentLine,
                             startLocation: .init(line: line, column: 1, offset: 0, file: filePath),
                             filePath: filePath,
-                            sourceLocationConverter: sourceLocationConverter)
+                            sourceLocationConverter: sourceLocationConverter,
+                            visitor: visitor)
                     }
                 }
             }
@@ -605,7 +664,8 @@ public class SwiftySpell {
         position: AbsolutePosition? = nil,
         startLocation: SourceLocation? = nil,
         filePath: String,
-        sourceLocationConverter: SourceLocationConverter) {
+        sourceLocationConverter: SourceLocationConverter,
+        visitor: CodeVisitor) {
         let line: Int
         var column: Int
         if let position = position {
@@ -615,6 +675,11 @@ public class SwiftySpell {
         } else {
             line = startLocation?.line ?? 0
             column = getColumn(line: line, identifier: string, filePath: filePath)
+        }
+
+        // Check if this line should be ignored based on inline directives
+        if visitor.ignoredLineNumbers.contains(line) {
+            return
         }
 
         var currentWordColumn = column

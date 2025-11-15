@@ -46,6 +46,7 @@ public class Constants {
           #- ignore_lorem_ipsum
           #- ignore_html_tags
           - ignore_urls
+          #- check_only_localized_strings
 
         # Words/Regular expressions to ignore
         ignore:
@@ -64,6 +65,12 @@ public class Constants {
     static let possessiveApostrophe = "'"
     static let possessiveMarker = "s"
     static let swiftFileExtension = "swift"
+
+    // SwiftySpell inline directive patterns
+    static let directiveDisableThis = "swiftyspell:disable:this"
+    static let directiveDisableNext = "swiftyspell:disable:next"
+    static let directiveDisable = "swiftyspell:disable"
+    static let directiveEnable = "swiftyspell:enable"
 
     #if os(Linux)
     static let hunspellAffixFileExtension = "aff"
