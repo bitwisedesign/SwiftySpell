@@ -110,4 +110,15 @@ internal class WordCheckerTests: XCTestCase {
             _ = wordChecker.checkAndSuggestCorrections(word: longText, languages: ["en"])
         }
     }
+
+    func testSpecialCharactersStripping() {
+        // Test that Constants.specialCharactersToIgnore contains expected characters
+        XCTAssertTrue(Constants.specialCharactersToIgnore.contains("%"))
+        XCTAssertTrue(Constants.specialCharactersToIgnore.contains("°"))
+        XCTAssertTrue(Constants.specialCharactersToIgnore.contains("•"))
+        XCTAssertTrue(Constants.specialCharactersToIgnore.contains("?"))
+        XCTAssertTrue(Constants.specialCharactersToIgnore.contains("+"))
+        XCTAssertTrue(Constants.specialCharactersToIgnore.contains("*"))
+        XCTAssertTrue(Constants.specialCharactersToIgnore.contains("μ"))
+    }
 }

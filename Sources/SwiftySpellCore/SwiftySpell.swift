@@ -586,6 +586,14 @@ public class SwiftySpell {
             .remove(Constants.tabCharacter)
     }
 
+    private func stripSpecialCharacters(_ input: String) -> String {
+        guard let config = config, config.rules.contains(.ignoreSpecialCharacters) else {
+            return input
+        }
+
+        return String(input.filter { !Constants.specialCharactersToIgnore.contains($0) })
+    }
+
     private func isValidURL(_ urlString: String) -> Bool {
         let pattern = "^(https?|ftp)://[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}(/[a-zA-Z0-9#?&=_-]*)?$"
 
@@ -670,6 +678,7 @@ public class SwiftySpell {
             word = word.remove(Constants.possessiveApostrophe)
             word = word.remove(Constants.quoteCharacter)
             word = word.remove("\n")
+            word = stripSpecialCharacters(word)
 
             if word.isEmpty {
                 return

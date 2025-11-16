@@ -321,4 +321,58 @@ internal class SwiftCodesForTests {
         ]
         return .init(code: code, misspelledWords: misspelledWords)
     }
+
+    public static func forSpecialCharacters() -> SwiftCodesForTests {
+        let code = """
+            // Test cases with special characters that were previously flagged as misspelled
+            let percentage = "%"
+            let question = "club?"
+            let degrees = "70°"
+            let degreeSymbol = "°"
+            let temperature = "%i°"
+            let bullet = "•"
+            let questionMark = "?"
+            let doubleQuestion = "??"
+            let plus = "+"
+            let mu = "μ"
+            let asterisk = "*"
+            let doubleAsterisk = "**"
+
+            // Mixed content with special characters
+            let message1 = "The temperature is 72°"
+            let message2 = "What club?"
+            let message3 = "Increase by 15%"
+            let message4 = "Micro: μ"
+
+            // Variables with special characters
+            let percent95 = "95%"
+            let angle45 = "45°"
+
+            // Comments with special characters
+            // This is 100% correct
+            // Temperature: 20°C
+            /*
+             * Bullet points:
+             * • First point
+             * • Second point
+             */
+            """
+        let misspelledWords: [String] = []
+        return .init(code: code, misspelledWords: misspelledWords)
+    }
+
+    public static func forSpecialCharactersWithMisspellings() -> SwiftCodesForTests {
+        let code = """
+            // Test that misspellings are still detected even with special characters
+            let tempperature = "72°"
+            let messaage = "What club?"
+            let percenttage = "95%"
+            let angllle = "45°"
+
+            // This is 100% corect
+            // Tempperature: 20°C
+            """
+        let misspelledWords = ["tempperature", "messaage", "percenttage", "angllle", "corect", "Tempperature"]
+        return .init(code: code, misspelledWords: misspelledWords)
+    }
 }
