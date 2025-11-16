@@ -5,7 +5,9 @@
 //  Created by Yassine Lafryhi on 10/8/2024.
 //
 
+#if canImport(AppKit)
 import AppKit
+#endif
 import Foundation
 import SwiftParser
 import SwiftParserDiagnostics
@@ -46,7 +48,12 @@ public class SwiftySpell {
     }
 
     public func getSupportedLanguages() -> [String] {
-        NSSpellChecker.shared.availableLanguages
+        #if canImport(AppKit)
+        return NSSpellChecker.shared.availableLanguages
+        #else
+        // On Linux, return common language codes that Hunspell supports
+        return ["en", "en_US", "en_GB"]
+        #endif
     }
 
     public func getSupportedRules() -> [String] {
