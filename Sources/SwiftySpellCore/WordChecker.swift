@@ -129,9 +129,27 @@ internal class WordChecker {
     }
 
     private func generateLanguageFilePaths(languageCode: String) -> (affixURL: URL, dictionaryURL: URL)? {
+        #if os(macOS)
+        // macOS: Use user's Library directory
         let homeDirectory = FileManager.default.homeDirectoryForCurrentUser.path
-
         let baseDirectory = "\(homeDirectory)/Library/Spelling"
+        #else
+        // Linux: Use system hunspell dictionary directory
+        let possibleDirectories = [
+            "/usr/share/hunspell",
+            "/usr/share/myspell",
+            "/usr/local/share/hunspell"
+        ]
+
+        // Find the first directory that exists
+        guard let baseDirectory = possibleDirectories.first(where: {
+            FileManager.default.fileExists(atPath: $0)
+        }) else {
+            print("Error: Could not find Hunspell dictionary directory. Tried: \(possibleDirectories.joined(separator: ", "))")
+            return nil
+        }
+        #endif
+
         let affixPath = "\(baseDirectory)/\(languageCode).\(Constants.hunspellAffixFileExtension)"
         let dictionaryPath = "\(baseDirectory)/\(languageCode).\(Constants.hunspellDictionaryFileExtension)"
 
