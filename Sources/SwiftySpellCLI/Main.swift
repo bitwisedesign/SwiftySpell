@@ -6,7 +6,13 @@
 //
 
 import ArgumentParser
+#if canImport(CoreFoundation)
+import CoreFoundation
+#endif
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import SwiftySpellCore
 
 internal var swiftySpell = SwiftySpell()
@@ -35,10 +41,18 @@ internal struct Check: ParsableCommand {
     var quiet: Bool = false
 
     func run() throws {
+        #if canImport(CoreFoundation)
         let startAsync = CFAbsoluteTimeGetCurrent()
+        #else
+        let startAsync = Date().timeIntervalSince1970
+        #endif
         loadConfig(path, quiet: quiet)
         swiftySpell.check(path, withFix: false, quiet: quiet) {
+            #if canImport(CoreFoundation)
             let endAsync = CFAbsoluteTimeGetCurrent()
+            #else
+            let endAsync = Date().timeIntervalSince1970
+            #endif
             let elapsedTime = Int(endAsync - startAsync)
             print(Utilities.getMessage(.doneChecking(swiftySpell.misspelledWordsNumber, elapsedTime)))
             
@@ -62,10 +76,18 @@ internal struct Fix: ParsableCommand {
     var quiet: Bool = false
 
     func run() throws {
+        #if canImport(CoreFoundation)
         let startAsync = CFAbsoluteTimeGetCurrent()
+        #else
+        let startAsync = Date().timeIntervalSince1970
+        #endif
         loadConfig(path, quiet: quiet)
         swiftySpell.check(path, withFix: true, quiet: quiet) {
+            #if canImport(CoreFoundation)
             let endAsync = CFAbsoluteTimeGetCurrent()
+            #else
+            let endAsync = Date().timeIntervalSince1970
+            #endif
             let elapsedTime = Int(endAsync - startAsync)
             print(Utilities.getMessage(.doneCheckingAndCorrecting(
                 swiftySpell.misspelledWordsNumber,
@@ -124,6 +146,10 @@ internal struct Update: ParsableCommand {
         abstract: "Check for updates, download, and install the latest version.")
 
     func run() throws {
+        #if !canImport(FoundationNetworking)
+        print("Error: Update command is only supported on macOS")
+        return
+        #else
         guard let url = URL(string: Constants.latestReleaseURL) else {
             print("Error: Invalid GitHub API URL")
             return
@@ -164,6 +190,7 @@ internal struct Update: ParsableCommand {
 
         task.resume()
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 10))
+        #endif
     }
 }
 
