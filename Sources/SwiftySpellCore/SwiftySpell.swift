@@ -336,7 +336,9 @@ public class SwiftySpell {
         filePath: String,
         sourceLocationConverter: SourceLocationConverter) {
         for node in visitor.localizedStrings {
-            let stringValue = node.description.trim()
+            var stringValue = node.description.trim()
+            // Remove format specifiers and string interpolation before spell checking
+            stringValue = stringValue.removeFormatSpecifiersAndInterpolation()
             let startLocation = node.startLocation(converter: sourceLocationConverter)
             processSpelling(
                 for: stringValue,

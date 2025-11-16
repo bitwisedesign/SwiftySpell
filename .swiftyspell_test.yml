@@ -1,0 +1,5 @@
+languages:
+  - en
+rules:
+  - check_only_localized_strings
+

@@ -687,4 +687,241 @@ internal class LocalizedStringsTests: XCTestCase {
         }
         waitForExpectations(timeout: testTimeout, handler: nil)
     }
+
+    func testFormatSpecifiersAreStripped() {
+        let expectation = expectation(description: "Test that format specifiers like %.1f are stripped")
+
+        guard let swiftySpell = swiftySpell else {
+            XCTFail("SwiftySpell instance not initialized")
+            return
+        }
+
+        let configContent = """
+        languages:
+          - en
+        rules:
+          - check_only_localized_strings
+        """
+        let configFilePath = "\(testDirectoryPath)/.swiftyspell.yml"
+        try? configContent.write(toFile: configFilePath, atomically: true, encoding: .utf8)
+        swiftySpell.setConfig(configFilePath: configFilePath)
+
+        let testCode = """
+        import SwiftUI
+
+        struct ContentView: View {
+            let hours: Double = 3.5
+            let count: Int = 42
+
+            var body: some View {
+                VStack {
+                    // Format specifiers should be stripped, only "hours" should be checked
+                    Text(String(format: "%.1f hours", hours))
+                    Text(String(format: "%d items", count))
+                    Text(String(format: "%.2f%%", 95.5))
+
+                    // Test with misspellings - format specifiers stripped, but words checked
+                    Text(String(format: "%.1f hourss", hours))  // "hourss" is misspelled
+                    Text(String(format: "%d itemms", count))  // "itemms" is misspelled
+                    Text(String(format: "Value: %@ dolars", "test"))  // "dolars" is misspelled
+
+                    // Multiple format specifiers
+                    Text(String(format: "%d of %d completd", 5, 10))  // "completd" is misspelled
+                }
+            }
+        }
+        """
+
+        let testFilePath = "\(testDirectoryPath)/TestFile.swift"
+        try? testCode.write(toFile: testFilePath, atomically: true, encoding: .utf8)
+
+        DispatchQueue.global().async {
+            let semaphore = DispatchSemaphore(value: 0)
+            swiftySpell.check(self.testDirectoryPath, withFix: false, isRunningFromCLI: false) {
+                semaphore.signal()
+            }
+            semaphore.wait()
+
+            let misspelledWords = swiftySpell.allMisspelledWords.sorted()
+
+            print("DEBUG testFormatSpecifiersAreStripped: Found misspellings: \(misspelledWords)")
+
+            // Should find actual misspellings in the words
+            XCTAssertTrue(misspelledWords.contains("hourss"), "Should detect 'hourss' (format specifier should be stripped), found: \(misspelledWords)")
+            XCTAssertTrue(misspelledWords.contains("itemms"), "Should detect 'itemms' (format specifier should be stripped), found: \(misspelledWords)")
+            XCTAssertTrue(misspelledWords.contains("dolars"), "Should detect 'dolars' (format specifier should be stripped), found: \(misspelledWords)")
+            XCTAssertTrue(misspelledWords.contains("completd"), "Should detect 'completd' (format specifier should be stripped), found: \(misspelledWords)")
+
+            // Should NOT find format specifiers themselves
+            XCTAssertFalse(misspelledWords.contains("%.1f"), "Should NOT check format specifier %.1f")
+            XCTAssertFalse(misspelledWords.contains("%d"), "Should NOT check format specifier %d")
+            XCTAssertFalse(misspelledWords.contains("%.2f"), "Should NOT check format specifier %.2f")
+            XCTAssertFalse(misspelledWords.contains("%@"), "Should NOT check format specifier %@")
+
+            // Should NOT find correctly spelled words
+            XCTAssertFalse(misspelledWords.contains("hours"), "Should NOT flag correctly spelled 'hours'")
+            XCTAssertFalse(misspelledWords.contains("items"), "Should NOT flag correctly spelled 'items'")
+
+            expectation.fulfill()
+        }
+        waitForExpectations(timeout: testTimeout, handler: nil)
+    }
+
+    func testStringInterpolationIsStripped() {
+        let expectation = expectation(description: "Test that string interpolation like \\(variable) is stripped")
+
+        guard let swiftySpell = swiftySpell else {
+            XCTFail("SwiftySpell instance not initialized")
+            return
+        }
+
+        let configContent = """
+        languages:
+          - en
+        rules:
+          - check_only_localized_strings
+        """
+        let configFilePath = "\(testDirectoryPath)/.swiftyspell.yml"
+        try? configContent.write(toFile: configFilePath, atomically: true, encoding: .utf8)
+        swiftySpell.setConfig(configFilePath: configFilePath)
+
+        let testCode = """
+        import SwiftUI
+
+        struct Entry {
+            let numAchievedGoals: Int
+            let userName: String
+        }
+
+        struct ContentView: View {
+            let entry = Entry(numAchievedGoals: 5, userName: "John")
+
+            var body: some View {
+                VStack {
+                    // String interpolation should be stripped, only surrounding words checked
+                    Text("\\(entry.numAchievedGoals)")
+                    Text("\\(entry.numAchievedGoals) goals")
+                    Text("User: \\(entry.userName)")
+                    Text("\\(entry.userName) has \\(entry.numAchievedGoals) goals")
+
+                    // Test with misspellings - interpolation stripped, but words checked
+                    Text("\\(entry.numAchievedGoals) goalsss")  // "goalsss" is misspelled
+                    Text("Usser: \\(entry.userName)")  // "Usser" is misspelled
+                    Text("\\(entry.userName) has \\(entry.numAchievedGoals) trophys")  // "trophys" is misspelled
+
+                    // Complex interpolation expressions
+                    Text("Progress: \\(entry.numAchievedGoals * 100)%")
+                    Text("Welcom \\(entry.userName)!")  // "Welcom" is misspelled
+                }
+            }
+        }
+        """
+
+        let testFilePath = "\(testDirectoryPath)/TestFile.swift"
+        try? testCode.write(toFile: testFilePath, atomically: true, encoding: .utf8)
+
+        DispatchQueue.global().async {
+            let semaphore = DispatchSemaphore(value: 0)
+            swiftySpell.check(self.testDirectoryPath, withFix: false, isRunningFromCLI: false) {
+                semaphore.signal()
+            }
+            semaphore.wait()
+
+            let misspelledWords = swiftySpell.allMisspelledWords.sorted()
+
+            print("DEBUG testStringInterpolationIsStripped: Found misspellings: \(misspelledWords)")
+
+            // Should find actual misspellings in the words
+            XCTAssertTrue(misspelledWords.contains("goalsss"), "Should detect 'goalsss' (interpolation should be stripped), found: \(misspelledWords)")
+            XCTAssertTrue(misspelledWords.contains("Usser"), "Should detect 'Usser' (interpolation should be stripped), found: \(misspelledWords)")
+            XCTAssertTrue(misspelledWords.contains("trophys"), "Should detect 'trophys' (interpolation should be stripped), found: \(misspelledWords)")
+            XCTAssertTrue(misspelledWords.contains("Welcom"), "Should detect 'Welcom' (interpolation should be stripped), found: \(misspelledWords)")
+
+            // Should NOT find variable names or property accesses from interpolation
+            XCTAssertFalse(misspelledWords.contains("numAchievedGoals"), "Should NOT check variable name from interpolation")
+            XCTAssertFalse(misspelledWords.contains("userName"), "Should NOT check variable name from interpolation")
+            XCTAssertFalse(misspelledWords.contains("entry"), "Should NOT check variable name from interpolation")
+
+            // Should NOT find correctly spelled words
+            XCTAssertFalse(misspelledWords.contains("goals"), "Should NOT flag correctly spelled 'goals'")
+            XCTAssertFalse(misspelledWords.contains("User"), "Should NOT flag correctly spelled 'User'")
+            XCTAssertFalse(misspelledWords.contains("has"), "Should NOT flag correctly spelled 'has'")
+
+            expectation.fulfill()
+        }
+        waitForExpectations(timeout: testTimeout, handler: nil)
+    }
+
+    func testMixedFormatSpecifiersAndInterpolation() {
+        let expectation = expectation(description: "Test that both format specifiers and interpolation are stripped together")
+
+        guard let swiftySpell = swiftySpell else {
+            XCTFail("SwiftySpell instance not initialized")
+            return
+        }
+
+        let configContent = """
+        languages:
+          - en
+        rules:
+          - check_only_localized_strings
+        """
+        let configFilePath = "\(testDirectoryPath)/.swiftyspell.yml"
+        try? configContent.write(toFile: configFilePath, atomically: true, encoding: .utf8)
+        swiftySpell.setConfig(configFilePath: configFilePath)
+
+        let testCode = """
+        import SwiftUI
+
+        struct ContentView: View {
+            let score: Double = 98.5
+            let name: String = "John"
+
+            var body: some View {
+                VStack {
+                    // Mix of format specifiers and interpolation
+                    Text("\\(name) scored %.1f%%")
+                    Text("User \\(name) has %d points")
+
+                    // With misspellings
+                    Text("\\(name) scorred %.1f%%")  // "scorred" is misspelled
+                    Text("Usser \\(name) has %d pointts")  // "Usser" and "pointts" are misspelled
+                }
+            }
+        }
+        """
+
+        let testFilePath = "\(testDirectoryPath)/TestFile.swift"
+        try? testCode.write(toFile: testFilePath, atomically: true, encoding: .utf8)
+
+        DispatchQueue.global().async {
+            let semaphore = DispatchSemaphore(value: 0)
+            swiftySpell.check(self.testDirectoryPath, withFix: false, isRunningFromCLI: false) {
+                semaphore.signal()
+            }
+            semaphore.wait()
+
+            let misspelledWords = swiftySpell.allMisspelledWords.sorted()
+
+            print("DEBUG testMixedFormatSpecifiersAndInterpolation: Found misspellings: \(misspelledWords)")
+
+            // Should find actual misspellings
+            XCTAssertTrue(misspelledWords.contains("scorred"), "Should detect 'scorred', found: \(misspelledWords)")
+            XCTAssertTrue(misspelledWords.contains("Usser"), "Should detect 'Usser', found: \(misspelledWords)")
+            XCTAssertTrue(misspelledWords.contains("pointts"), "Should detect 'pointts', found: \(misspelledWords)")
+
+            // Should NOT find format specifiers or interpolation content
+            XCTAssertFalse(misspelledWords.contains("%.1f"), "Should NOT check format specifier")
+            XCTAssertFalse(misspelledWords.contains("%d"), "Should NOT check format specifier")
+            XCTAssertFalse(misspelledWords.contains("name"), "Should NOT check variable name from interpolation")
+
+            // Should NOT find correctly spelled words
+            XCTAssertFalse(misspelledWords.contains("scored"), "Should NOT flag correctly spelled 'scored'")
+            XCTAssertFalse(misspelledWords.contains("User"), "Should NOT flag correctly spelled 'User'")
+            XCTAssertFalse(misspelledWords.contains("points"), "Should NOT flag correctly spelled 'points'")
+
+            expectation.fulfill()
+        }
+        waitForExpectations(timeout: testTimeout, handler: nil)
+    }
 }
