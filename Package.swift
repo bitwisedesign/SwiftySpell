@@ -40,6 +40,9 @@ let package = Package(
             dependencies: [
                 "SwiftySpellCore",
                 .product(name: "ArgumentParser", package: "swift-argument-parser")
+            ],
+            linkerSettings: [
+                .linkedLibrary("curl", .when(platforms: [.linux]))
             ]),
         .testTarget(
             name: "SwiftySpellTests",
