@@ -196,6 +196,7 @@ public class Configuration {
         case ignoreLoremIpsum = "ignore_lorem_ipsum"
         case ignoreHtmlTags = "ignore_html_tags"
         case ignoreUrls = "ignore_urls"
+        case ignoreSpecialCharacters = "ignore_special_characters"
         case checkOnlyLocalizedStrings = "check_only_localized_strings"
     }
 }

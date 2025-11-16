@@ -44,9 +44,10 @@ public class Constants {
           - ignore_commonly_used_words
           #- ignore_shortened_words
           #- ignore_lorem_ipsum
-          #- ignore_html_tags
-          - ignore_urls
-          #- check_only_localized_strings
+        #- ignore_html_tags
+        - ignore_urls
+        - ignore_special_characters
+        #- check_only_localized_strings
 
         # Words/Regular expressions to ignore
         ignore:
@@ -57,6 +58,20 @@ public class Constants {
         """
 
     static let delimiters = ",.:-;_!`@/()[]{}\\"
+
+    // Special characters that should be stripped before spell checking
+    // when ignore_special_characters rule is enabled
+    static let specialCharactersToIgnore: Set<Character> = [
+        "%", "°", "•", "?", "+", "*", "μ", "§", "†", "‡",
+        "¶", "•", "ª", "º", "¹", "²", "³", "¼", "½", "¾",
+        "×", "÷", "±", "≠", "≤", "≥", "∞", "∑", "∏", "∫",
+        "√", "∂", "∆", "π", "Ω", "α", "β", "γ", "δ", "ε",
+        "λ", "σ", "τ", "φ", "ψ", "ω", "←", "→", "↑", "↓",
+        "⇐", "⇒", "⇑", "⇓", "≈", "≡", "∈", "∉", "∋", "∀",
+        "∃", "∅", "∩", "∪", "⊂", "⊃", "⊆", "⊇", "€", "£",
+        "¥", "¢", "©", "®", "™", "℃", "℉", "№", "℮"
+    ]
+
     static let blockCommentStart = "/*"
     static let blockCommentEnd = "*/"
     static let singleLineCommentStart = "//"

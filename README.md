@@ -62,6 +62,7 @@ rules:
   - ignore_lorem_ipsum
   - ignore_html_tags
   - ignore_urls
+  - ignore_special_characters
 
 # Words/Regular expressions to ignore
 ignore:

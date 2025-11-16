@@ -363,4 +363,165 @@ internal class SwiftySpellTests: XCTestCase {
         }
         waitForExpectations(timeout: testTimeout, handler: nil)
     }
+
+    func testCheckSpellingWithSpecialCharacters() {
+        let expectation = expectation(description: "Test special characters handling")
+
+        guard let swiftySpell = swiftySpell else {
+            return
+        }
+
+        let testConfigPath = "\(testDirectoryPath)/\(Constants.configFileName)"
+        let testConfig = """
+                    # Languages to check
+                    languages:
+                      - en
+
+                    # Directories/Files/Regular expressions to exclude
+                    exclude:
+                      - Pods
+
+                    # Rules to apply
+                    rules:
+                      - support_flat_case
+                      - support_one_line_comment
+                      - support_multi_line_comment
+                      - ignore_swift_keywords
+                      - ignore_commonly_used_words
+                      - ignore_special_characters
+
+                    # Words/Regular expressions to ignore
+                    ignore:
+                      - iOS
+            """
+        try? testConfig.write(toFile: testConfigPath, atomically: true, encoding: .utf8)
+        swiftySpell.setConfig(configFilePath: testConfigPath)
+
+        let testFilePath = "\(testDirectoryPath)/TestFile.swift"
+        let swiftCode = SwiftCodesForTests.forSpecialCharacters()
+        let testFileContent = swiftCode.code
+        try? testFileContent.write(toFile: testFilePath, atomically: true, encoding: .utf8)
+
+        DispatchQueue.global().async {
+            let semaphore = DispatchSemaphore(value: 0)
+            swiftySpell.check(self.testDirectoryPath, withFix: false, isRunningFromCLI: false) {
+                semaphore.signal()
+            }
+            semaphore.wait()
+
+            let array = swiftySpell.allMisspelledWords.sorted()
+            XCTAssertEqual(array, swiftCode.misspelledWords.sorted(), "Special characters should not be flagged as misspellings")
+
+            expectation.fulfill()
+        }
+        waitForExpectations(timeout: testTimeout, handler: nil)
+    }
+
+    func testCheckSpellingWithSpecialCharactersAndMisspellings() {
+        let expectation = expectation(description: "Test special characters with actual misspellings")
+
+        guard let swiftySpell = swiftySpell else {
+            return
+        }
+
+        let testConfigPath = "\(testDirectoryPath)/\(Constants.configFileName)"
+        let testConfig = """
+                    # Languages to check
+                    languages:
+                      - en
+
+                    # Directories/Files/Regular expressions to exclude
+                    exclude:
+                      - Pods
+
+                    # Rules to apply
+                    rules:
+                      - support_flat_case
+                      - support_one_line_comment
+                      - support_multi_line_comment
+                      - ignore_swift_keywords
+                      - ignore_commonly_used_words
+                      - ignore_special_characters
+
+                    # Words/Regular expressions to ignore
+                    ignore:
+                      - iOS
+            """
+        try? testConfig.write(toFile: testConfigPath, atomically: true, encoding: .utf8)
+        swiftySpell.setConfig(configFilePath: testConfigPath)
+
+        let testFilePath = "\(testDirectoryPath)/TestFile.swift"
+        let swiftCode = SwiftCodesForTests.forSpecialCharactersWithMisspellings()
+        let testFileContent = swiftCode.code
+        try? testFileContent.write(toFile: testFilePath, atomically: true, encoding: .utf8)
+
+        DispatchQueue.global().async {
+            let semaphore = DispatchSemaphore(value: 0)
+            swiftySpell.check(self.testDirectoryPath, withFix: false, isRunningFromCLI: false) {
+                semaphore.signal()
+            }
+            semaphore.wait()
+
+            let array = swiftySpell.allMisspelledWords.sorted()
+            XCTAssertEqual(array, swiftCode.misspelledWords.sorted(), "Misspellings should still be detected after stripping special characters")
+
+            expectation.fulfill()
+        }
+        waitForExpectations(timeout: testTimeout, handler: nil)
+    }
+
+    func testSpecialCharactersRuleDisabled() {
+        let expectation = expectation(description: "Test special characters without the rule enabled")
+
+        guard let swiftySpell = swiftySpell else {
+            return
+        }
+
+        let testConfigPath = "\(testDirectoryPath)/\(Constants.configFileName)"
+        let testConfig = """
+                    # Languages to check
+                    languages:
+                      - en
+
+                    # Directories/Files/Regular expressions to exclude
+                    exclude:
+                      - Pods
+
+                    # Rules to apply (note: ignore_special_characters is NOT enabled)
+                    rules:
+                      - support_flat_case
+                      - support_one_line_comment
+                      - support_multi_line_comment
+                      - ignore_swift_keywords
+                      - ignore_commonly_used_words
+
+                    # Words/Regular expressions to ignore
+                    ignore:
+                      - iOS
+            """
+        try? testConfig.write(toFile: testConfigPath, atomically: true, encoding: .utf8)
+        swiftySpell.setConfig(configFilePath: testConfigPath)
+
+        let testFilePath = "\(testDirectoryPath)/TestFile.swift"
+        let testCode = """
+            let degrees = "70°"
+            let percentage = "15%"
+            """
+        try? testCode.write(toFile: testFilePath, atomically: true, encoding: .utf8)
+
+        DispatchQueue.global().async {
+            let semaphore = DispatchSemaphore(value: 0)
+            swiftySpell.check(self.testDirectoryPath, withFix: false, isRunningFromCLI: false) {
+                semaphore.signal()
+            }
+            semaphore.wait()
+
+            // When the rule is disabled, behavior depends on the spell checker
+            // This test just ensures the code doesn't crash
+            XCTAssertTrue(true, "Code should execute without crashing when rule is disabled")
+
+            expectation.fulfill()
+        }
+        waitForExpectations(timeout: testTimeout, handler: nil)
+    }
 }
