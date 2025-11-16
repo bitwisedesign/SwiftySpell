@@ -109,30 +109,77 @@ Some examples of the warnings displayed in Xcode:
 | ![](Screenshots/Screenshot4.png) | ![](Screenshots/Screenshot5.png) |
 
 ### Command Line
+
+#### Check entire project
 Run SwiftySpell from the command line by navigating to the directory containing the Swift project you want to check and running the following command:
 ```shell
 swiftyspell check .
 ```
 
+#### Check specific files
+You can check one or more specific Swift files:
+```shell
+# Check a single file
+swiftyspell check Sources/MyFile.swift
+
+# Check multiple files
+swiftyspell check Sources/File1.swift Sources/File2.swift Tests/TestFile.swift
+```
+
+#### Check only modified files
+Use the `--git-modified` flag to check only files that have been modified according to git status:
+```shell
+# Check only modified files in the entire project
+swiftyspell check . --git-modified
+
+# Check only modified files from a specific list
+swiftyspell check Sources/File1.swift Sources/File2.swift --git-modified
+```
+
+#### Use custom configuration file
+Specify a custom configuration file with the `--config` option:
+```shell
+# Use custom config for the entire project
+swiftyspell check . --config path/to/.swiftyspell.yml
+
+# Use custom config for specific files
+swiftyspell check Sources/MyFile.swift --config custom-config.yml
+```
+
+#### Fix spelling mistakes
+To correct most of the spelling mistakes, run the following command:
+```shell
+# Fix in entire project
+swiftyspell fix .
+
+# Fix in specific files
+swiftyspell fix Sources/File1.swift Sources/File2.swift
+
+# Fix only modified files
+swiftyspell fix . --git-modified
+
+# Fix with custom config
+swiftyspell fix . --config .swiftyspell-strict.yml
+```
+
 ### As a pre-commit git hook
-You can use SwiftySpell as a pre-commit git hook to check spelling before committing your changes. To do so, add the following to the `.git/hooks/pre-commit` file:
+You can use SwiftySpell as a pre-commit git hook to check spelling before committing your changes. The `--git-modified` flag is particularly useful here to only check files being committed:
+
 ```shell
 #!/bin/sh
 
-output=$(swiftyspell check .)
+# Check only modified files before committing
+output=$(swiftyspell check . --git-modified)
 count=$(echo "$output" | grep -c "may be misspelled")
 
 if [ $count -gt 0 ]; then
-  echo "Spelling errors found. Please fix them before committing (You can run 'swiftyspell fix .' to fix most of them)."
+  echo "Spelling errors found. Please fix them before committing."
+  echo "You can run 'swiftyspell fix . --git-modified' to fix most of them."
   exit 1
 fi
 ```
 
-## Correcting Spelling Mistakes (WIP)
-To correct most of the spelling mistakes, run the following command:
-```shell
-swiftyspell fix .
-```
+Add this to your `.git/hooks/pre-commit` file and make it executable with `chmod +x .git/hooks/pre-commit`.
 
 ## Inline Ignore Directives
 
@@ -204,7 +251,7 @@ chmod +x build.sh && chmod +x install.sh
 - [ ] Improve the implementation of ignore_capitalization rule (using the suggestions array is not always sufficient)
 - [ ] Improve the implementation of support_flat_case rule (using the suggestions array is not always sufficient)
 - [ ] If the misspelledWord starts with a word from the ignore list, remove it then recheck spelling of the resulting word
-- [ ] Run check/fix on a single file
+- [x] Run check/fix on a single file or multiple files
 - [ ] Add reporter config (xcode (default), json, csv, ...)
 - [ ] Add Severity config (error/warning) for every rule
 - [ ] Enhance the Fix command to list suggestions and ask to choose one (If suggestions array contains more than 1 word)

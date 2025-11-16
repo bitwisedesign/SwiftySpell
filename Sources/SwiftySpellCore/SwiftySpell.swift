@@ -78,44 +78,76 @@ public class SwiftySpell {
         isRunningFromCLI: Bool = true,
         onlyGitModified: Bool = false,
         completion: @escaping CompletionHandler) {
+        check(
+            [directoryOrSwiftFilePath],
+            withFix: withFix,
+            quiet: quiet,
+            isRunningFromCLI: isRunningFromCLI,
+            onlyGitModified: onlyGitModified,
+            completion: completion)
+    }
+
+    public func check(
+        _ paths: [String],
+        withFix: Bool,
+        quiet: Bool = false,
+        isRunningFromCLI: Bool = true,
+        onlyGitModified: Bool = false,
+        completion: @escaping CompletionHandler) {
         self.withFix = withFix
         self.quiet = quiet
         completionHandler = completion
 
         do {
             var swiftFiles: [URL] = []
-            let pathType = getPathType(path: directoryOrSwiftFilePath)
-            switch pathType {
-            case .file:
-                let swiftFilePath = directoryOrSwiftFilePath
-                swiftFiles.append(.init(filePath: swiftFilePath))
-            case .directory:
-                let directoryPath = directoryOrSwiftFilePath
-                if onlyGitModified {
-                    swiftFiles = getModifiedSwiftFiles(in: directoryPath)
-                } else {
-                    swiftFiles = try fetchSwiftFiles(from: directoryPath)
+
+            // Process each path and collect all Swift files
+            for path in paths {
+                let pathType = getPathType(path: path)
+                switch pathType {
+                case .file:
+                    // Add file directly if it's a Swift file
+                    if path.hasSuffix(Constants.swiftFileExtension) {
+                        let fileURL = URL(fileURLWithPath: path)
+                        if !shouldExclude(file: fileURL) {
+                            swiftFiles.append(fileURL)
+                        }
+                    }
+                case .directory:
+                    let directoryPath = path
+                    if onlyGitModified {
+                        swiftFiles.append(contentsOf: getModifiedSwiftFiles(in: directoryPath))
+                    } else {
+                        swiftFiles.append(contentsOf: try fetchSwiftFiles(from: directoryPath))
+                    }
+                case .notFound:
+                    print(Constants.getMessage(.projectOrSwiftFilePathDoesNotExist))
                 }
-            case .notFound:
-                break
             }
+
+            // If git-modified flag is set and we have explicit files, filter to only modified ones
+            if onlyGitModified && !paths.isEmpty {
+                let allPaths = paths.filter { getPathType(path: $0) != .directory }
+                if !allPaths.isEmpty {
+                    swiftFiles = filterModifiedFiles(swiftFiles)
+                }
+            }
+
             let swiftFilesNumber = swiftFiles.count
-            var swiftFilesCounter = 1
 
             let queue = DispatchQueue.global(qos: .userInitiated)
             let group = DispatchGroup()
 
-            for file in swiftFiles {
+            for (index, file) in swiftFiles.enumerated() {
                 group.enter()
                 queue.async {
                     defer { group.leave() }
 
                     do {
                         if !self.quiet {
-                            print("Checking '\(file.lastPathComponent)' (\(swiftFilesCounter)/\(swiftFilesNumber))")
+                            print("Checking '\(file.lastPathComponent)' (\(index + 1)/\(swiftFilesNumber))")
                         }
                         try self.processFile(file)
-                        swiftFilesCounter += 1
                     } catch {
                         print(Constants.getMessage(.genericError(error.localizedDescription)))
                     }
@@ -185,9 +217,18 @@ public class SwiftySpell {
     }
 
     private func getModifiedSwiftFiles(in directory: String) -> [URL] {
+        // Convert directory to absolute path
+        let absoluteDirectory: String
+        if directory.hasPrefix("/") {
+            absoluteDirectory = directory
+        } else {
+            let directoryURL = URL(fileURLWithPath: directory, relativeTo: URL(fileURLWithPath: fileManager.currentDirectoryPath))
+            absoluteDirectory = directoryURL.standardized.path
+        }
+
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        task.currentDirectoryURL = URL(fileURLWithPath: directory)
+        task.currentDirectoryURL = URL(fileURLWithPath: absoluteDirectory)
         task.arguments = ["status", "--porcelain"]
 
         let pipe = Pipe()
@@ -203,7 +244,7 @@ public class SwiftySpell {
                 return []
             }
 
-            let directoryURL = URL(fileURLWithPath: directory)
+            let directoryURL = URL(fileURLWithPath: absoluteDirectory)
 
             let modifiedFiles = output.components(separatedBy: .newlines)
                 .compactMap { line -> URL? in
@@ -220,7 +261,81 @@ public class SwiftySpell {
                     }
 
                     let status = String(components[0])
-                    let filePath = String(components[1]).replace("\"", "")
+                    let filePath = String(components[1]).replace("\"", "").trimmingCharacters(in: .whitespaces)
+
+                    guard filePath.hasSuffix(".swift") else {
+                        return nil
+                    }
+
+                    let fileURL: URL
+                    switch status {
+                    case "M", "A", "MM":
+                        fileURL = directoryURL.appendingPathComponent(filePath)
+                    case "R":
+                        let parts = filePath.components(separatedBy: " -> ")
+                        if parts.count == 2, parts[1].hasSuffix(".swift") {
+                            fileURL = directoryURL.appendingPathComponent(parts[1])
+                        } else {
+                            return nil
+                        }
+                    default:
+                        return nil
+                    }
+
+                    // Check if file should be excluded
+                    if shouldExclude(file: fileURL) {
+                        return nil
+                    }
+
+                    return fileURL
+                }
+
+            return modifiedFiles
+        } catch {
+            print("Error: \(error.localizedDescription)")
+            return []
+        }
+    }
+
+    private func filterModifiedFiles(_ files: [URL]) -> [URL] {
+        // Get current directory for git command
+        let currentDirectory = fileManager.currentDirectoryPath
+
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        task.currentDirectoryURL = URL(fileURLWithPath: currentDirectory)
+        task.arguments = ["status", "--porcelain"]
+
+        let pipe = Pipe()
+        task.standardOutput = pipe
+
+        do {
+            try task.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            task.waitUntilExit()
+
+            guard let output = String(data: data, encoding: .utf8) else {
+                print("Error: Unable to read git status output")
+                return files
+            }
+
+            // Parse git status output to get modified file paths
+            let modifiedPaths = Set(output.components(separatedBy: .newlines)
+                .compactMap { line -> String? in
+                    let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmedLine.isEmpty else {
+                        return nil
+                    }
+
+                    let components = trimmedLine.split(
+                        maxSplits: 1,
+                        omittingEmptySubsequences: true) { $0.isWhitespace }
+                    guard components.count == 2 else {
+                        return nil
+                    }
+
+                    let status = String(components[0])
+                    let filePath = String(components[1]).replace("\"", "").trimmingCharacters(in: .whitespaces)
 
                     guard filePath.hasSuffix(".swift") else {
                         return nil
@@ -228,22 +343,27 @@ public class SwiftySpell {
 
                     switch status {
                     case "M", "A", "MM":
-                        return URL(fileURLWithPath: filePath, relativeTo: directoryURL)
+                        return filePath
                     case "R":
                         let parts = filePath.components(separatedBy: " -> ")
                         if parts.count == 2, parts[1].hasSuffix(".swift") {
-                            return URL(fileURLWithPath: parts[1], relativeTo: directoryURL)
+                            return parts[1]
                         }
                         return nil
                     default:
                         return nil
                     }
-                }
+                })
 
-            return modifiedFiles
+            // Filter the provided files to only include modified ones
+            return files.filter { fileURL in
+                let absolutePath = fileURL.path
+                let relativePath = absolutePath.replacingOccurrences(of: currentDirectory + "/", with: "")
+                return modifiedPaths.contains(relativePath) || modifiedPaths.contains(absolutePath)
+            }
         } catch {
             print("Error: \(error.localizedDescription)")
-            return []
+            return files
         }
     }
 
