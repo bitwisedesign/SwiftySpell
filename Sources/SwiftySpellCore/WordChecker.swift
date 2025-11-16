@@ -5,7 +5,9 @@
 //  Created by Yassine Lafryhi on 10/8/2024.
 //
 
+#if canImport(AppKit)
 import AppKit
+#endif
 import Foundation
 
 internal class WordChecker {
@@ -45,6 +47,8 @@ internal class WordChecker {
             return corrections
         }
 
+        #if canImport(AppKit)
+        // Use NSSpellChecker on Apple platforms
         for language in languages {
             let result = checkWordSpelling(word, language: language)
 
@@ -59,10 +63,24 @@ internal class WordChecker {
         if isMisspelledInAllLanguages {
             corrections[word] = Array(Set(allSuggestions))
         }
+        #else
+        // Use Hunspell on Linux
+        guard let firstLanguage = languages.first else {
+            return corrections
+        }
+
+        let languageCode = firstLanguage == "en" ? "en_US" : firstLanguage
+        let checkResult = checkWord(word, languageCode: languageCode)
+
+        if checkResult.0 {
+            corrections[word] = checkResult.1
+        }
+        #endif
 
         return corrections
     }
 
+    #if canImport(AppKit)
     private func checkWordSpelling(_ word: String, language: String) -> (isMispelled: Bool, suggestionArray: [String]) {
         let spellChecker = NSSpellChecker.shared
 
@@ -86,29 +104,10 @@ internal class WordChecker {
 
         return (isMispelled: true, suggestionArray: suggestions)
     }
+    #endif
 
-    #if os(Linux)
-    func checkAndSuggestCorrectionsWithHunspell(text: String, languages: Set<String>) -> [String: [String]] {
-        var corrections: [String: [String]] = [:]
-
-        guard let firstLanguage = languages.first else {
-            return corrections
-        }
-
-        let languageCode = firstLanguage == "en" ? "en_US" : firstLanguage
-        let checkResult = checkWord(text, languageCode: languageCode)
-
-        if checkResult.0 {
-            let misspelledWord = text
-            if ignoredWords.contains(misspelledWord) || shouldIgnoreWord(word: misspelledWord) {
-            } else {
-                corrections[misspelledWord] = checkResult.1
-            }
-        }
-
-        return corrections
-    }
-
+    #if !canImport(AppKit)
+    // Linux-specific methods using Hunspell
     private func checkWord(_ word: String, languageCode: String) -> (Bool, [String]) {
         var isMisspelled = false
         var suggestions: [String] = []
