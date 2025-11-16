@@ -20,7 +20,8 @@ let package = Package(
             name: "CHunspell",
             pkgConfig: "hunspell",
             providers: [
-                .brew(["hunspell"])
+                .brew(["hunspell"]),
+                .apt(["libhunspell-dev", "libcurl4-openssl-dev"])
             ]),
         .target(
             name: "SwiftySpellCore",
@@ -30,12 +31,18 @@ let package = Package(
                 .product(name: "SwiftParserDiagnostics", package: "swift-syntax"),
                 "Yams",
                 "CHunspell"
+            ],
+            linkerSettings: [
+                .linkedLibrary("curl", .when(platforms: [.linux]))
             ]),
         .executableTarget(
             name: "SwiftySpellCLI",
             dependencies: [
                 "SwiftySpellCore",
                 .product(name: "ArgumentParser", package: "swift-argument-parser")
+            ],
+            linkerSettings: [
+                .linkedLibrary("curl", .when(platforms: [.linux]))
             ]),
         .testTarget(
             name: "SwiftySpellTests",
