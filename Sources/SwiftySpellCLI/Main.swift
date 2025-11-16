@@ -28,13 +28,19 @@ internal struct Check: ParsableCommand {
         commandName: "check",
         abstract: "Start \(Constants.name).")
 
-    @Argument(help: "The project path.")
-    var path: String
+    @Argument(help: "The project path or list of specific Swift files.")
+    var paths: [String]
+
+    @Flag(name: .long, help: "Only check files modified according to git status.")
+    var gitModified: Bool = false
+
+    @Option(name: .long, help: "Path to custom configuration file.")
+    var config: String?
 
     func run() throws {
         let startAsync = CFAbsoluteTimeGetCurrent()
-        loadConfig(path)
-        swiftySpell.check(path, withFix: false) {
+        loadConfig(paths, explicitConfigPath: config)
+        swiftySpell.check(paths, withFix: false, onlyGitModified: gitModified) {
             let endAsync = CFAbsoluteTimeGetCurrent()
             let elapsedTime = Int(endAsync - startAsync)
             print(Utilities.getMessage(.doneChecking(swiftySpell.misspelledWordsNumber, elapsedTime)))
@@ -48,13 +54,19 @@ internal struct Fix: ParsableCommand {
         commandName: "fix",
         abstract: "Correct most spelling errors.")
 
-    @Argument(help: "The project (or Swift file) path")
-    var path: String
+    @Argument(help: "The project path or list of specific Swift files.")
+    var paths: [String]
+
+    @Flag(name: .long, help: "Only fix files modified according to git status.")
+    var gitModified: Bool = false
+
+    @Option(name: .long, help: "Path to custom configuration file.")
+    var config: String?
 
     func run() throws {
         let startAsync = CFAbsoluteTimeGetCurrent()
-        loadConfig(path)
-        swiftySpell.check(path, withFix: true) {
+        loadConfig(paths, explicitConfigPath: config)
+        swiftySpell.check(paths, withFix: true, onlyGitModified: gitModified) {
             let endAsync = CFAbsoluteTimeGetCurrent()
             let elapsedTime = Int(endAsync - startAsync)
             print(Utilities.getMessage(.doneCheckingAndCorrecting(
@@ -153,17 +165,36 @@ internal struct Update: ParsableCommand {
     }
 }
 
-private func loadConfig(_ directoryOrSwiftFilePath: String) {
+private func loadConfig(_ paths: [String], explicitConfigPath: String? = nil) {
     let fileManager = FileManager.default
+
+    // If explicit config path is provided, use it
+    if let explicitConfigPath = explicitConfigPath {
+        if fileManager.fileExists(atPath: explicitConfigPath) {
+            swiftySpell.setConfig(configFilePath: explicitConfigPath)
+            return
+        } else {
+            Utilities.printError(Utilities.getMessage(.configFileNotFound(explicitConfigPath)))
+            exit(1)
+        }
+    }
+
+    // Otherwise, use auto-discovery based on first path
+    guard let firstPath = paths.first else {
+        swiftySpell.setConfig()
+        Utilities.printWarning(Utilities.getMessage(.configFileNotFound(Constants.configFileName)))
+        return
+    }
+
     var projectPath: String
 
-    let pathType = Utilities.getPathType(path: directoryOrSwiftFilePath)
+    let pathType = Utilities.getPathType(path: firstPath)
 
     switch pathType {
     case .file:
-        projectPath = URL(fileURLWithPath: directoryOrSwiftFilePath).deletingLastPathComponent().path
+        projectPath = URL(fileURLWithPath: firstPath).deletingLastPathComponent().path
     case .directory:
-        projectPath = directoryOrSwiftFilePath
+        projectPath = firstPath
     case .notFound:
         Utilities.printError(Utilities.getMessage(.projectOrSwiftFilePathDoesNotExist))
         exit(1)
